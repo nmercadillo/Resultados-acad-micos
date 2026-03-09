@@ -1,256 +1,197 @@
-import sys
-import pandas as pd
-from PySide6.QtWidgets import (
-    QApplication, QWidget, QPushButton, QFileDialog, QVBoxLayout,
-    QLabel, QTableWidget, QTableWidgetItem, QComboBox
-)
-from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
-from matplotlib.figure import Figure
+# Analizador de Resultados Académicos
 
-class AnalizadorApp(QWidget):
+Aplicación web que permite **analizar resultados académicos a partir de un archivo Excel**. Está diseñada para ejecutarse directamente desde **GitHub Pages**, sin necesidad de instalar Python ni ningún programa adicional.
 
-    def __init__(self):
-        super().__init__()
-        self.setWindowTitle("Analizador de Resultados Académicos")
-        self.resize(900,600)
-
-        self.df = None
-        self.resultados = None
-
-        layout = QVBoxLayout()
-
-        self.btn_cargar = QPushButton("Cargar Excel")
-        self.btn_cargar.clicked.connect(self.cargar_excel)
-
-        self.selector_nivel = QComboBox()
-        self.selector_nivel.currentTextChanged.connect(self.mostrar_tabla)
-
-        self.tabla = QTableWidget()
-
-        self.fig = Figure()
-        self.canvas = FigureCanvas(self.fig)
-
-        layout.addWidget(QLabel("Archivo:"))
-        layout.addWidget(self.btn_cargar)
-        layout.addWidget(QLabel("Nivel:"))
-        layout.addWidget(self.selector_nivel)
-        layout.addWidget(self.tabla)
-        layout.addWidget(self.canvas)
-
-        self.setLayout(layout)
-
-    def cargar_excel(self):
-        ruta,_ = QFileDialog.getOpenFileName(self,"Seleccionar Excel","","Excel (*.xlsx *.xls)")
-        if not ruta:
-            return
-
-        df = pd.read_excel(ruta)
-
-        df["Alumno"] = df.iloc[:,4].astype(str)+" "+df.iloc[:,5].astype(str)+" "+df.iloc[:,6].astype(str)
-        df["Etapa"] = df.iloc[:,10]
-        df["Unidad"] = df.iloc[:,13]
-        df["Materia"] = df.iloc[:,19]
-
-        df["Nota"] = df.iloc[:,27]
-
-        df["Nota"] = pd.to_numeric(df["Nota"],errors="coerce")
-
-        df["Suspenso"] = df["Nota"] < 5
-
-        suspensos = df.groupby(["Etapa","Unidad","Alumno"])["Suspenso"].sum().reset_index()
-
-        def categoria(n):
-            if n == 0:
-                return "0"
-            elif n <= 2:
-                return "1-2"
-            elif n <= 4:
-                return "3-4"
-            else:
-                return "5+"
-
-        suspensos["Categoria"] = suspensos["Suspenso"].apply(categoria)
-
-        resumen = suspensos.groupby(["Etapa","Unidad","Categoria"]).size().unstack(fill_value=0)
-
-        self.resultados = resumen
-
-        niveles = resumen.index.get_level_values(0).unique()
-
-        self.selector_nivel.clear()
-        self.selector_nivel.addItems(niveles)
-
-    def mostrar_tabla(self):
-        nivel = self.selector_nivel.currentText()
-        if not nivel:
-            return
-
-        datos = self.resultados.loc[nivel]
-
-        self.tabla.setRowCount(len(datos))
-        self.tabla.setColumnCount(len(datos.columns)+1)
-
-        headers = ["Unidad"] + list(datos.columns)
-        self.tabla.setHorizontalHeaderLabels(headers)
-
-        for i,(unidad,row) in enumerate(datos.iterrows()):
-            self.tabla.setItem(i,0,QTableWidgetItem(str(unidad)))
-            for j,val in enumerate(row):
-                self.tabla.setItem(i,j+1,QTableWidgetItem(str(val)))
-
-        self.graficar(datos)
-
-    def graficar(self,datos):
-        self.fig.clear()
-        ax = self.fig.add_subplot(111)
-
-        datos.plot(kind="bar",ax=ax)
-
-        ax.set_title("Comparación por unidades")
-        ax.set_ylabel("Número de alumnos")
-
-        self.canvas.draw()
-
-if __name__ == "__main__":
-    app = QApplication(sys.argv)
-    ventana = AnalizadorApp()
-    ventana.show()
-    sys.exit(app.exec())
-
-# README.md
-
-## Analizador de Resultados Académicos
-
-Aplicación de escritorio para **analizar resultados académicos a partir de un archivo Excel**. La herramienta permite agrupar materias por alumno, calcular suspensos y generar comparaciones por **nivel educativo y unidad** mediante tablas y gráficas.
-
-La aplicación está pensada para **funcionar completamente offline** en Windows.
+La aplicación procesa los datos **localmente en el navegador**, por lo que los archivos Excel no se suben a ningún servidor.
 
 ---
 
 # Características
 
-- Carga archivos **Excel (.xlsx o .xls)**
-- Agrupa datos por:
-  - Etapa (ej. "1º curso de ESO LOMLOE", "1º Bachillerato LOMLOE")
-  - Unidad (1A, 1B, etc.)
-- Identifica alumnos combinando columnas de nombre y apellidos
-- Calcula número de **materias suspensas (nota < 5)**
-- Clasifica alumnos en categorías:
+- 📂 Carga archivos **Excel (.xlsx)**
+- 🧮 Calcula automáticamente el número de **materias suspensas** por alumno
+- 📊 Clasifica a los alumnos según número de suspensos
+- 🏫 Agrupa resultados por **etapa** y **unidad**
+- 📈 Genera **gráficas comparativas** entre unidades
+- 🌐 Funciona directamente desde **GitHub Pages**
+- 💻 Compatible con cualquier sistema operativo (Windows, Mac, Linux, Chromebook)
 
-| Categoría | Suspensos |
+---
+
+# Clasificación de suspensos
+
+Se considera suspenso cualquier **nota inferior a 5**.
+
+Los alumnos se agrupan en las siguientes categorías:
+
+| Categoría | Número de suspensos |
 |---|---|
 | 0 | Ningún suspenso |
 | 1-2 | Entre 1 y 2 suspensos |
 | 3-4 | Entre 3 y 4 suspensos |
 | 5+ | 5 o más suspensos |
 
-- Genera **tablas de resultados por unidad**
-- Genera **gráficas comparativas entre unidades**
-- Interfaz gráfica sencilla
-
 ---
 
-# Estructura del Excel esperada
+# Estructura del Excel esperado
 
-El programa utiliza columnas específicas del archivo Excel:
+El archivo Excel debe contener las siguientes columnas (según posición):
 
 | Dato | Columna Excel |
 |---|---|
-| Nombre alumno | E |
+| Nombre | E |
 | Apellido 1 | F |
 | Apellido 2 | G |
 | Etapa | K |
 | Unidad | N |
 | Materia | T |
-| Nota | AB (posición usada actualmente en el script) |
+| Nota | AB |
 
-Cada fila debe representar **una materia de un alumno**.
+Cada fila debe representar:
 
----
-
-# Requisitos
-
-Instalar Python 3.9 o superior.
-
-Instalar dependencias:
-
-```
-pip install pandas matplotlib pyside6 openpyxl
-```
+**una materia de un alumno**.
 
 ---
 
-# Ejecutar la aplicación
+# Estructura del proyecto
 
-Desde la carpeta del proyecto:
+El repositorio debe contener estos archivos:
 
 ```
-python analizador_resultados_academicos_app.py
+analizador-resultados-academicos
+│
+├── index.html
+├── script.js
+├── styles.css
+└── README.md
 ```
-
-Se abrirá la interfaz gráfica.
-
-1. Pulsar **Cargar Excel**
-2. Seleccionar el archivo
-3. Elegir el **nivel educativo** en el selector
-4. Ver resultados y gráficas
 
 ---
 
-# Crear ejecutable (.exe)
+# Descripción de los archivos
 
-Para generar una aplicación descargable:
+## index.html
 
-Instalar PyInstaller:
+Contiene la estructura principal de la aplicación:
 
-```
-pip install pyinstaller
-```
+- carga de archivo Excel
+- selector de nivel educativo
+- tabla de resultados
+- gráfico comparativo
 
-Crear ejecutable:
+También incluye las librerías externas:
 
-```
-pyinstaller --onefile --windowed analizador_resultados_academicos_app.py
-```
-
-El archivo final aparecerá en:
-
-```
-dist/analizador_resultados_academicos_app.exe
-```
-
-Este archivo podrá ejecutarse **sin necesidad de instalar Python**.
+- **SheetJS (xlsx)** para leer archivos Excel
+- **Chart.js** para generar gráficos
 
 ---
 
-# Funcionamiento del análisis
+## script.js
 
-1. Se combinan las columnas de nombre y apellidos para identificar cada alumno.
-2. Se detectan materias suspensas (nota < 5).
-3. Se cuentan suspensos por alumno.
-4. Cada alumno se clasifica en una categoría de suspensos.
-5. Se agrupan resultados por:
+Contiene toda la lógica de la aplicación:
+
+1. Leer el archivo Excel
+2. Agrupar materias por alumno
+3. Calcular número de suspensos
+4. Clasificar alumnos en categorías
+5. Agrupar resultados por etapa y unidad
+6. Generar tabla de resultados
+7. Crear gráficos comparativos
+
+---
+
+## styles.css
+
+Define el estilo visual de la aplicación:
+
+- tipografía
+- tabla de resultados
+- espaciado
+
+---
+
+# Cómo usar la aplicación
+
+1. Abrir la página web.
+2. Seleccionar el archivo Excel mediante el botón de carga.
+3. El sistema analizará automáticamente los datos.
+4. Elegir el **nivel educativo** en el selector.
+5. Consultar los resultados en la tabla y el gráfico.
+
+---
+
+# Publicar en GitHub Pages
+
+## 1 Crear repositorio
+
+Crear un repositorio en GitHub, por ejemplo:
 
 ```
-Etapa → Unidad → Categoría de suspensos
+analizador-resultados-academicos
 ```
 
-6. Se generan tablas y gráficos comparativos.
+## 2 Subir los archivos
+
+Subir al repositorio:
+
+```
+index.html
+script.js
+styles.css
+README.md
+```
+
+## 3 Activar GitHub Pages
+
+Ir a:
+
+```
+Settings → Pages
+```
+
+Seleccionar:
+
+```
+Deploy from branch
+```
+
+Elegir:
+
+```
+main / root
+```
+
+## 4 Acceder a la aplicación
+
+La aplicación quedará disponible en:
+
+```
+https://TU-USUARIO.github.io/analizador-resultados-academicos
+```
+
+---
+
+# Ventajas de esta solución
+
+- No requiere instalación
+- Funciona en cualquier ordenador
+- Compatible con dispositivos educativos
+- Fácil de compartir mediante enlace
+- Procesamiento local seguro
 
 ---
 
 # Posibles mejoras futuras
 
-- Selección de **evaluación (1ª, 2ª, final)**
-- Exportación automática a **Excel o PDF**
-- Cálculo de **porcentajes automáticos**
-- Dashboard con filtros por materia
-- Comparación entre cursos académicos
-- Edición manual de resultados
+- cálculo automático de **porcentajes**
+- exportación de resultados a **Excel**
+- exportación de **informes PDF**
+- filtros por **evaluación**
+- comparativa entre **cursos académicos**
+- panel visual tipo **dashboard educativo**
 
 ---
 
 # Licencia
 
-Uso educativo libre. Puede modificarse y adaptarse a las necesidades del centro educativo.
-
+Proyecto de uso educativo libre. Puede modificarse y adaptarse a las necesidades de cada centro educativo.
