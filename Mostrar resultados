@@ -1,0 +1,118 @@
+import sys
+import pandas as pd
+from PySide6.QtWidgets import (
+    QApplication, QWidget, QPushButton, QFileDialog, QVBoxLayout,
+    QLabel, QTableWidget, QTableWidgetItem, QComboBox
+)
+from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.figure import Figure
+
+class AnalizadorApp(QWidget):
+
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Analizador de Resultados Académicos")
+        self.resize(900,600)
+
+        self.df = None
+        self.resultados = None
+
+        layout = QVBoxLayout()
+
+        self.btn_cargar = QPushButton("Cargar Excel")
+        self.btn_cargar.clicked.connect(self.cargar_excel)
+
+        self.selector_nivel = QComboBox()
+        self.selector_nivel.currentTextChanged.connect(self.mostrar_tabla)
+
+        self.tabla = QTableWidget()
+
+        self.fig = Figure()
+        self.canvas = FigureCanvas(self.fig)
+
+        layout.addWidget(QLabel("Archivo:"))
+        layout.addWidget(self.btn_cargar)
+        layout.addWidget(QLabel("Nivel:"))
+        layout.addWidget(self.selector_nivel)
+        layout.addWidget(self.tabla)
+        layout.addWidget(self.canvas)
+
+        self.setLayout(layout)
+
+    def cargar_excel(self):
+        ruta,_ = QFileDialog.getOpenFileName(self,"Seleccionar Excel","","Excel (*.xlsx *.xls)")
+        if not ruta:
+            return
+
+        df = pd.read_excel(ruta)
+
+        df["Alumno"] = df.iloc[:,4].astype(str)+" "+df.iloc[:,5].astype(str)+" "+df.iloc[:,6].astype(str)
+        df["Etapa"] = df.iloc[:,10]
+        df["Unidad"] = df.iloc[:,13]
+        df["Materia"] = df.iloc[:,19]
+
+        df["Nota"] = df.iloc[:,27]
+
+        df["Nota"] = pd.to_numeric(df["Nota"],errors="coerce")
+
+        df["Suspenso"] = df["Nota"] < 5
+
+        suspensos = df.groupby(["Etapa","Unidad","Alumno"])["Suspenso"].sum().reset_index()
+
+        def categoria(n):
+            if n == 0:
+                return "0"
+            elif n <= 2:
+                return "1-2"
+            elif n <= 4:
+                return "3-4"
+            else:
+                return "5+"
+
+        suspensos["Categoria"] = suspensos["Suspenso"].apply(categoria)
+
+        resumen = suspensos.groupby(["Etapa","Unidad","Categoria"]).size().unstack(fill_value=0)
+
+        self.resultados = resumen
+
+        niveles = resumen.index.get_level_values(0).unique()
+
+        self.selector_nivel.clear()
+        self.selector_nivel.addItems(niveles)
+
+    def mostrar_tabla(self):
+        nivel = self.selector_nivel.currentText()
+        if not nivel:
+            return
+
+        datos = self.resultados.loc[nivel]
+
+        self.tabla.setRowCount(len(datos))
+        self.tabla.setColumnCount(len(datos.columns)+1)
+
+        headers = ["Unidad"] + list(datos.columns)
+        self.tabla.setHorizontalHeaderLabels(headers)
+
+        for i,(unidad,row) in enumerate(datos.iterrows()):
+            self.tabla.setItem(i,0,QTableWidgetItem(str(unidad)))
+            for j,val in enumerate(row):
+                self.tabla.setItem(i,j+1,QTableWidgetItem(str(val)))
+
+        self.graficar(datos)
+
+    def graficar(self,datos):
+        self.fig.clear()
+        ax = self.fig.add_subplot(111)
+
+        datos.plot(kind="bar",ax=ax)
+
+        ax.set_title("Comparación por unidades")
+        ax.set_ylabel("Número de alumnos")
+
+        self.canvas.draw()
+
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+    ventana = AnalizadorApp()
+    ventana.show()
+    sys.exit(app.exec())
