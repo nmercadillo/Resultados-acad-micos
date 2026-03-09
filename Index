@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Analizador de Resultados Académicos</title>
+
+<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<link rel="stylesheet" href="css/styles.css">
+
+</head>
+
+<body>
+
+<h1>Analizador de Resultados Académicos</h1>
+
+<input type="file" id="excelFile">
+
+<select id="nivel"></select>
+
+<table id="tabla"></table>
+
+<canvas id="grafico"></canvas>
+
+<script src="js/script.js"></script>
+
+</body>
+</html>
