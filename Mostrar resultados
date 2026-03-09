@@ -1,118 +1,302 @@
-import sys
-import pandas as pd
-from PySide6.QtWidgets import (
-    QApplication, QWidget, QPushButton, QFileDialog, QVBoxLayout,
-    QLabel, QTableWidget, QTableWidgetItem, QComboBox
-)
-from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
-from matplotlib.figure import Figure
+# Analizador de Resultados Académicos (versión web para GitHub)
 
-class AnalizadorApp(QWidget):
+Esta versión de la aplicación está diseñada para ejecutarse **directamente desde GitHub Pages** como una aplicación web. No requiere instalación de Python ni ejecutables. Solo necesitas abrir la página y cargar el archivo Excel.
 
-    def __init__(self):
-        super().__init__()
-        self.setWindowTitle("Analizador de Resultados Académicos")
-        self.resize(900,600)
+La aplicación funciona completamente **en el navegador** y los datos se procesan localmente (no se suben a ningún servidor).
 
-        self.df = None
-        self.resultados = None
+---
 
-        layout = QVBoxLayout()
+# Características
 
-        self.btn_cargar = QPushButton("Cargar Excel")
-        self.btn_cargar.clicked.connect(self.cargar_excel)
+- Carga archivos Excel (.xlsx)
+- Funciona desde **GitHub Pages**
+- Procesamiento local en el navegador
+- Agrupa resultados por:
+  - Etapa
+  - Unidad
+- Cuenta materias suspensas (nota < 5)
+- Clasifica alumnos en:
 
-        self.selector_nivel = QComboBox()
-        self.selector_nivel.currentTextChanged.connect(self.mostrar_tabla)
+| Categoría | Suspensos |
+|---|---|
+| 0 | Ningún suspenso |
+| 1-2 | Entre 1 y 2 suspensos |
+| 3-4 | Entre 3 y 4 suspensos |
+| 5+ | 5 o más suspensos |
 
-        self.tabla = QTableWidget()
+- Genera tabla de resultados
+- Genera gráficas comparativas
 
-        self.fig = Figure()
-        self.canvas = FigureCanvas(self.fig)
+---
 
-        layout.addWidget(QLabel("Archivo:"))
-        layout.addWidget(self.btn_cargar)
-        layout.addWidget(QLabel("Nivel:"))
-        layout.addWidget(self.selector_nivel)
-        layout.addWidget(self.tabla)
-        layout.addWidget(self.canvas)
+# Estructura del proyecto
 
-        self.setLayout(layout)
+```
+/analizador-resultados
 
-    def cargar_excel(self):
-        ruta,_ = QFileDialog.getOpenFileName(self,"Seleccionar Excel","","Excel (*.xlsx *.xls)")
-        if not ruta:
-            return
+index.html
+script.js
+styles.css
+README.md
+```
 
-        df = pd.read_excel(ruta)
+---
 
-        df["Alumno"] = df.iloc[:,4].astype(str)+" "+df.iloc[:,5].astype(str)+" "+df.iloc[:,6].astype(str)
-        df["Etapa"] = df.iloc[:,10]
-        df["Unidad"] = df.iloc[:,13]
-        df["Materia"] = df.iloc[:,19]
+# Archivo index.html
 
-        df["Nota"] = df.iloc[:,27]
+```html
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Analizador de Resultados Académicos</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
 
-        df["Nota"] = pd.to_numeric(df["Nota"],errors="coerce")
+<h1>Analizador de Resultados Académicos</h1>
 
-        df["Suspenso"] = df["Nota"] < 5
+<input type="file" id="excelFile" />
+<select id="nivel"></select>
 
-        suspensos = df.groupby(["Etapa","Unidad","Alumno"])["Suspenso"].sum().reset_index()
+<table id="tabla"></table>
 
-        def categoria(n):
-            if n == 0:
-                return "0"
-            elif n <= 2:
-                return "1-2"
-            elif n <= 4:
-                return "3-4"
-            else:
-                return "5+"
+<canvas id="grafico"></canvas>
 
-        suspensos["Categoria"] = suspensos["Suspenso"].apply(categoria)
+<script src="script.js"></script>
 
-        resumen = suspensos.groupby(["Etapa","Unidad","Categoria"]).size().unstack(fill_value=0)
+</body>
+</html>
+```
 
-        self.resultados = resumen
+---
 
-        niveles = resumen.index.get_level_values(0).unique()
+# Archivo script.js
 
-        self.selector_nivel.clear()
-        self.selector_nivel.addItems(niveles)
+```javascript
+let datosProcesados = {}
 
-    def mostrar_tabla(self):
-        nivel = self.selector_nivel.currentText()
-        if not nivel:
-            return
+function categoria(n){
 
-        datos = self.resultados.loc[nivel]
+if(n===0) return "0"
+if(n<=2) return "1-2"
+if(n<=4) return "3-4"
+return "5+"
 
-        self.tabla.setRowCount(len(datos))
-        self.tabla.setColumnCount(len(datos.columns)+1)
+}
 
-        headers = ["Unidad"] + list(datos.columns)
-        self.tabla.setHorizontalHeaderLabels(headers)
+function procesarExcel(data){
 
-        for i,(unidad,row) in enumerate(datos.iterrows()):
-            self.tabla.setItem(i,0,QTableWidgetItem(str(unidad)))
-            for j,val in enumerate(row):
-                self.tabla.setItem(i,j+1,QTableWidgetItem(str(val)))
+const filas = data
 
-        self.graficar(datos)
+let alumnos = {}
 
-    def graficar(self,datos):
-        self.fig.clear()
-        ax = self.fig.add_subplot(111)
+filas.forEach(r=>{
 
-        datos.plot(kind="bar",ax=ax)
+let alumno = r[4] + " " + r[5] + " " + r[6]
+let etapa = r[10]
+let unidad = r[13]
+let nota = parseFloat(r[27])
 
-        ax.set_title("Comparación por unidades")
-        ax.set_ylabel("Número de alumnos")
+if(!alumnos[alumno]){
 
-        self.canvas.draw()
+alumnos[alumno] = {etapa,unidad,suspensos:0}
 
-if __name__ == "__main__":
-    app = QApplication(sys.argv)
-    ventana = AnalizadorApp()
-    ventana.show()
-    sys.exit(app.exec())
+}
+
+if(nota < 5) alumnos[alumno].suspensos++
+
+})
+
+let resumen = {}
+
+Object.values(alumnos).forEach(a=>{
+
+let cat = categoria(a.suspensos)
+
+if(!resumen[a.etapa]) resumen[a.etapa] = {}
+if(!resumen[a.etapa][a.unidad]) resumen[a.etapa][a.unidad] = {"0":0,"1-2":0,"3-4":0,"5+":0}
+
+resumen[a.etapa][a.unidad][cat]++
+
+})
+
+return resumen
+
+}
+
+document.getElementById("excelFile").addEventListener("change",function(e){
+
+const file = e.target.files[0]
+
+const reader = new FileReader()
+
+reader.onload = function(evt){
+
+const data = new Uint8Array(evt.target.result)
+const workbook = XLSX.read(data,{type:"array"})
+
+const sheet = workbook.Sheets[workbook.SheetNames[0]]
+const json = XLSX.utils.sheet_to_json(sheet,{header:1})
+
+json.shift()
+
+datosProcesados = procesarExcel(json)
+
+let selector = document.getElementById("nivel")
+selector.innerHTML = ""
+
+Object.keys(datosProcesados).forEach(n=>{
+
+let op = document.createElement("option")
+op.textContent = n
+selector.appendChild(op)
+
+})
+
+mostrar()
+
+}
+
+reader.readAsArrayBuffer(file)
+
+})
+
+function mostrar(){
+
+let nivel = document.getElementById("nivel").value
+let datos = datosProcesados[nivel]
+
+let tabla = document.getElementById("tabla")
+
+let html = "<tr><th>Unidad</th><th>0</th><th>1-2</th><th>3-4</th><th>5+</th></tr>"
+
+let labels = []
+let valores = []
+
+for(let u in datos){
+
+let d = datos[u]
+
+html += `<tr>
+<td>${u}</td>
+<td>${d['0']}</td>
+<td>${d['1-2']}</td>
+<td>${d['3-4']}</td>
+<td>${d['5+']}</td>
+</tr>`
+
+labels.push(u)
+valores.push(d['0'])
+
+}
+
+tabla.innerHTML = html
+
+crearGrafico(labels,valores)
+
+}
+
+function crearGrafico(labels,valores){
+
+const ctx = document.getElementById("grafico")
+
+new Chart(ctx,{ 
+
+type:'bar',
+
+data:{
+labels:labels,
+datasets:[{
+label:'Alumnos sin suspensos',
+data:valores
+}]
+}
+
+})
+
+}
+
+document.getElementById("nivel").addEventListener("change",mostrar)
+```
+
+---
+
+# Archivo styles.css
+
+```css
+body{
+font-family:Arial;
+margin:40px;
+}
+
+table{
+border-collapse:collapse;
+margin-top:20px;
+}
+
+th,td{
+border:1px solid #ccc;
+padding:8px 12px;
+text-align:center;
+}
+```
+
+---
+
+# Publicar en GitHub
+
+1. Crear repositorio en GitHub
+
+```
+analizador-resultados-academicos
+```
+
+2. Subir los archivos:
+
+```
+index.html
+script.js
+styles.css
+```
+
+3. Activar **GitHub Pages**:
+
+```
+Settings → Pages → Deploy from branch
+```
+
+Seleccionar:
+
+```
+main / root
+```
+
+4. La aplicación estará disponible en:
+
+```
+https://TU-USUARIO.github.io/analizador-resultados-academicos
+```
+
+---
+
+# Ventajas de esta versión
+
+- No requiere instalación
+- Funciona en cualquier ordenador
+- Compatible con Chromebooks
+- Puede compartirse mediante enlace
+- Ideal para centros educativos
+
+---
+
+# Posibles mejoras
+
+- cálculo automático de porcentajes
+- exportar resultados a Excel
+- exportar informe PDF
+- filtros por evaluación
+- comparativa entre cursos
+- dashboard visual tipo PowerBI
