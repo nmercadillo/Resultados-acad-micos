@@ -1,20 +1,21 @@
 # Analizador de Resultados Académicos
 
-Aplicación web que permite **analizar resultados académicos a partir de un archivo Excel**. Está diseñada para ejecutarse directamente desde **GitHub Pages**, sin necesidad de instalar Python ni ningún programa adicional.
+Aplicación web para **analizar resultados académicos a partir de un archivo Excel**. La herramienta está pensada para centros educativos y permite calcular automáticamente el número de suspensos del alumnado, agrupar los resultados por nivel y unidad, y mostrar los datos mediante tablas y gráficas.
 
-La aplicación procesa los datos **localmente en el navegador**, por lo que los archivos Excel no se suben a ningún servidor.
+La aplicación está diseñada para publicarse y ejecutarse directamente desde **GitHub Pages**, por lo que **no requiere instalar Python ni ningún programa adicional**. Todo el procesamiento se realiza **localmente en el navegador**.
 
 ---
 
 # Características
 
-- 📂 Carga archivos **Excel (.xlsx)**
-- 🧮 Calcula automáticamente el número de **materias suspensas** por alumno
-- 📊 Clasifica a los alumnos según número de suspensos
-- 🏫 Agrupa resultados por **etapa** y **unidad**
-- 📈 Genera **gráficas comparativas** entre unidades
-- 🌐 Funciona directamente desde **GitHub Pages**
-- 💻 Compatible con cualquier sistema operativo (Windows, Mac, Linux, Chromebook)
+- Carga archivos **Excel (.xlsx)**
+- Calcula automáticamente **materias suspensas (nota < 5)**
+- Agrupa resultados por **etapa educativa** y **unidad**
+- Clasifica al alumnado según número de suspensos
+- Genera **tabla de resultados por unidad**
+- Genera **gráficas comparativas**
+- Funciona completamente **en el navegador**
+- Puede publicarse fácilmente con **GitHub Pages**
 
 ---
 
@@ -22,7 +23,7 @@ La aplicación procesa los datos **localmente en el navegador**, por lo que los 
 
 Se considera suspenso cualquier **nota inferior a 5**.
 
-Los alumnos se agrupan en las siguientes categorías:
+Los alumnos se clasifican en las siguientes categorías:
 
 | Categoría | Número de suspensos |
 |---|---|
@@ -33,7 +34,7 @@ Los alumnos se agrupan en las siguientes categorías:
 
 ---
 
-# Estructura del Excel esperado
+# Formato del archivo Excel
 
 El archivo Excel debe contener las siguientes columnas (según posición):
 
@@ -47,80 +48,147 @@ El archivo Excel debe contener las siguientes columnas (según posición):
 | Materia | T |
 | Nota | AB |
 
-Cada fila debe representar:
+Cada fila debe representar **una materia de un alumno**.
 
-**una materia de un alumno**.
+El sistema agrupa automáticamente las materias por alumno para calcular el número total de suspensos.
 
 ---
 
-# Estructura del proyecto
+# Estructura del repositorio
 
-El repositorio debe contener estos archivos:
+El proyecto está organizado de la siguiente forma:
 
 ```
 analizador-resultados-academicos
 │
 ├── index.html
-├── script.js
-├── styles.css
-└── README.md
+├── README.md
+├── LICENSE
+│
+├── css
+│   └── styles.css
+│
+├── js
+│   └── script.js
+│
+├── data
+│   └── ejemplo_excel.xlsx
+│
+├── docs
+│   └── guia_usuario.md
+│
+└── assets
+    └── logo.png
 ```
 
 ---
 
-# Descripción de los archivos
+# Descripción de carpetas
 
 ## index.html
 
-Contiene la estructura principal de la aplicación:
+Archivo principal de la aplicación web. Contiene:
 
-- carga de archivo Excel
-- selector de nivel educativo
+- interfaz de usuario
+- carga del archivo Excel
 - tabla de resultados
 - gráfico comparativo
 
-También incluye las librerías externas:
-
-- **SheetJS (xlsx)** para leer archivos Excel
-- **Chart.js** para generar gráficos
+También carga las librerías externas necesarias.
 
 ---
 
-## script.js
+## css/
 
-Contiene toda la lógica de la aplicación:
+Contiene los estilos visuales de la aplicación.
+
+Archivo principal:
+
+```
+css/styles.css
+```
+
+Define tipografía, tabla de resultados y diseño básico.
+
+---
+
+## js/
+
+Contiene la lógica principal del programa.
+
+Archivo principal:
+
+```
+js/script.js
+```
+
+Responsable de:
 
 1. Leer el archivo Excel
 2. Agrupar materias por alumno
-3. Calcular número de suspensos
-4. Clasificar alumnos en categorías
+3. Calcular suspensos
+4. Clasificar alumnado
 5. Agrupar resultados por etapa y unidad
 6. Generar tabla de resultados
-7. Crear gráficos comparativos
+7. Crear gráficos
 
 ---
 
-## styles.css
+## data/
 
-Define el estilo visual de la aplicación:
+Carpeta opcional que contiene **archivos Excel de ejemplo** para probar la aplicación.
 
-- tipografía
-- tabla de resultados
-- espaciado
+Ejemplo:
+
+```
+data/ejemplo_excel.xlsx
+```
+
+Esto facilita entender el formato esperado.
+
+---
+
+## docs/
+
+Documentación adicional del proyecto.
+
+Ejemplo:
+
+```
+docs/guia_usuario.md
+```
+
+Puede incluir:
+
+- guía para profesorado
+- explicación del formato del Excel
+- ejemplos de uso
+
+---
+
+## assets/
+
+Archivos gráficos del proyecto.
+
+Ejemplos:
+
+- logo
+- iconos
+- imágenes para la documentación
 
 ---
 
 # Cómo usar la aplicación
 
-1. Abrir la página web.
-2. Seleccionar el archivo Excel mediante el botón de carga.
+1. Abrir la página web de la aplicación.
+2. Cargar el archivo Excel mediante el selector de archivo.
 3. El sistema analizará automáticamente los datos.
-4. Elegir el **nivel educativo** en el selector.
-5. Consultar los resultados en la tabla y el gráfico.
+4. Seleccionar el **nivel educativo**.
+5. Consultar la tabla de resultados y la gráfica.
 
 ---
 
-# Publicar en GitHub Pages
+# Publicar la aplicación en GitHub Pages
 
 ## 1 Crear repositorio
 
@@ -132,14 +200,15 @@ analizador-resultados-academicos
 
 ## 2 Subir los archivos
 
-Subir al repositorio:
+Subir todos los archivos del proyecto:
 
-```
-index.html
-script.js
-styles.css
-README.md
-```
+- index.html
+- css/
+- js/
+- data/
+- docs/
+- assets/
+- README.md
 
 ## 3 Activar GitHub Pages
 
@@ -174,8 +243,8 @@ https://TU-USUARIO.github.io/analizador-resultados-academicos
 # Ventajas de esta solución
 
 - No requiere instalación
-- Funciona en cualquier ordenador
-- Compatible con dispositivos educativos
+- Funciona en cualquier sistema operativo
+- Compatible con ordenadores del centro educativo
 - Fácil de compartir mediante enlace
 - Procesamiento local seguro
 
@@ -188,7 +257,7 @@ https://TU-USUARIO.github.io/analizador-resultados-academicos
 - exportación de **informes PDF**
 - filtros por **evaluación**
 - comparativa entre **cursos académicos**
-- panel visual tipo **dashboard educativo**
+- dashboard visual para análisis de resultados
 
 ---
 
